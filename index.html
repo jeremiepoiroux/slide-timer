@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Slide Timer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d0d0d; --surf: #1a1a1a; --surf2: #242424; --border: #2e2e2e;
+  --text: #f0f0f0; --muted: #888; --blue: #3b82f6; --green: #22c55e;
+  --red: #ef4444; --orange: #f97316;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; }
+.screen { display: none; flex-direction: column; min-height: 100dvh; padding: max(env(safe-area-inset-top),28px) 22px max(env(safe-area-inset-bottom),28px); }
+.screen.active { display: flex; }
+.screen-title { font-size: 1.65rem; font-weight: 700; }
+.screen-sub { font-size: .9rem; color: var(--muted); margin-top: 4px; margin-bottom: 20px; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.field input { width: 100%; background: var(--surf); border: 1.5px solid var(--border); border-radius: 13px; padding: 15px 16px; font-size: 1.1rem; color: var(--text); -webkit-appearance: none; }
+.field input:focus { outline: 2px solid var(--blue); border-color: transparent; }
+.btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 15px; font-size: 1.05rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .1s, opacity .1s; }
+.btn:active { transform: scale(.97); opacity: .85; }
+.btn:disabled { opacity: .5; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-green   { background: var(--green); color: #fff; margin-top: 10px; }
+.btn-ghost   { background: var(--surf); color: var(--text); }
+.row2 { display: flex; gap: 10px; margin-top: 10px; }
+.row2 .btn { margin-top: 0; }
+.spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surf2); border: 1px solid var(--border); border-radius: 20px; font-size: .85rem; color: var(--muted); cursor: pointer; margin-bottom: 20px; -webkit-tap-highlight-color: transparent; }
+/* Config */
+.slides-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-bottom: 12px; }
+.slide-row { display: grid; grid-template-columns: 5rem 1fr 3.5rem; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.slide-row:last-child { border-bottom: none; }
+.slide-lbl { font-size: .9rem; color: var(--muted); }
+.slide-unit { font-size: .75rem; color: var(--muted); }
+.slide-row input { background: var(--surf); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 1rem; color: var(--text); -webkit-appearance: none; text-align: right; width: 100%; }
+.slide-row input:focus { outline: 2px solid var(--blue); border-color: transparent; }
+.total-bar { background: var(--surf); border-radius: 13px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.total-bar-lbl { font-size: .8rem; color: var(--muted); }
+.total-bar-val { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ok { color: var(--green); } .warn { color: var(--orange); } .err { color: var(--red); }
+/* Present */
+#s-present { padding-left: 24px; padding-right: 24px; }
+.slide-badge { text-align: center; font-size: .82rem; color: var(--muted); letter-spacing: .09em; text-transform: uppercase; }
+.dots-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 10px 0 24px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.dot.done { background: var(--muted); } .dot.current { background: var(--blue); transform: scale(1.4); }
+.timer-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.big-time { font-size: 5.5rem; font-weight: 700; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.slide-obj { font-size: .9rem; color: var(--muted); margin-top: 4px; }
+.status-card { width: 100%; background: var(--surf); border-radius: 22px; padding: 22px 24px; margin-top: 28px; text-align: center; }
+.status-num { font-size: 3rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; transition: color .3s; }
+.status-lbl { font-size: .85rem; color: var(--muted); margin-top: 4px; min-height: 1.2em; }
+.total-row { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: 14px; }
+.track { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+.fill  { height: 100%; background: var(--blue); border-radius: 2px; transition: width .5s linear; }
+.btn-next { margin-top: 24px; padding: 24px; font-size: 1.2rem; border-radius: 20px; }
+/* Summary */
+.sum-hero { background: var(--surf); border-radius: 18px; padding: 22px; text-align: center; margin-bottom: 20px; }
+.sum-hero .big { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sum-hero .sub { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+.sum-scroll { flex: 1; overflow-y: auto; }
+.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.sum-row:last-child { border-bottom: none; }
+.sum-slide { font-size: .9rem; color: var(--muted); }
+.sum-actual { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.sum-diff   { font-size: .78rem; margin-top: 2px; font-variant-numeric: tabular-nums; text-align: right; }
+/* Library */
+.lib-scroll { flex: 1; overflow-y: auto; margin-bottom: 12px; }
+.lib-empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 40px 0; }
+.lib-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.lib-row:last-child { border-bottom: none; }
+.lib-info { flex: 1; min-width: 0; padding-right: 12px; }
+.lib-name { font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-meta { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+.lib-acts { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-load { padding: 8px 14px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: .85rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.btn-load:active { opacity: .8; }
+.btn-del { padding: 8px 12px; background: var(--surf2); color: var(--muted); border: none; border-radius: 10px; font-size: .85rem; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s, color .2s; }
+.btn-del.confirm { background: var(--red); color: #fff; }
+.btn-del:active { opacity: .8; }
+/* Rehearsal */
+#s-rehearse { padding-left: 24px; padding-right: 24px; }
+.rh-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.rh-hint { font-size: .85rem; color: var(--muted); margin-top: 10px; }
+.rh-recorded { font-size: 5.5rem; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1; color: var(--green); cursor: pointer; border-bottom: 2px solid currentColor; padding-bottom: 4px; display: inline-block; }
+.rh-edit-inp { display: none; width: 175px; background: var(--surf); border: 2px solid var(--blue); border-radius: 13px; padding: 13px 16px; font-size: 1.8rem; color: var(--text); text-align: center; font-variant-numeric: tabular-nums; -webkit-appearance: none; margin-top: 10px; }
+.rh-edit-inp:focus { outline: none; }
+.rh-remaining { font-size: .8rem; margin-top: 10px; min-height: 1em; }
+.btn-validate { background: var(--surf2); border: 2px solid var(--blue); color: var(--text); margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<!-- 1: Setup -->
+<div id="s-setup" class="screen active">
+  <div class="screen-title">Slide Timer</div>
+  <div class="screen-sub">Presentation setup</div>
+  <div class="chip" onclick="openLibrary()">📁 My presentations</div>
+  <div class="field">
+    <label>Presentation name</label>
+    <input type="text" id="pres-name" placeholder="E.g. Client demo, Q3 kickoff…" autocomplete="off" autocapitalize="words" oninput="autoSave()">
+  </div>
+  <div class="field">
+    <label>Total duration (minutes)</label>
+    <input type="number" id="total-min" min="1" max="360" value="30" inputmode="decimal" oninput="autoSave()">
+  </div>
+  <div class="field">
+    <label>Number of slides</label>
+    <input type="number" id="slide-count" min="1" max="99" value="10" inputmode="numeric" oninput="autoSave()">
+  </div>
+  <div class="spacer"></div>
+  <button class="btn btn-primary" onclick="goToConfig()">Configure slides →</button>
+  <button class="btn btn-ghost" onclick="startRehearse()" style="margin-top:10px">⏱ Time your slides →</button>
+</div>
+
+<!-- 2: Config -->
+<div id="s-config" class="screen">
+  <div class="screen-title">Slide timing</div>
+  <div class="screen-sub" id="config-sub">Duration per slide</div>
+  <div class="chip" onclick="distributeEvenly()">↔ Distribute evenly</div>
+  <div class="slides-scroll"><div id="slides-list"></div></div>
+  <div class="total-bar">
+    <span class="total-bar-lbl">Configured total</span>
+    <span class="total-bar-val" id="total-display">0:00</span>
+  </div>
+  <button class="btn btn-primary" onclick="startPresentation()">Start →</button>
+  <button class="btn btn-green" id="btn-save" onclick="saveToLibrary()">Save to library</button>
+  <div class="row2">
+    <button class="btn btn-ghost" onclick="show('s-setup')">← Back</button>
+    <button class="btn btn-ghost" onclick="exportJSON()">Export JSON</button>
+  </div>
+</div>
+
+<!-- 3: Present -->
+<div id="s-present" class="screen">
+  <div class="slide-badge" id="badge">Slide 1 / 10</div>
+  <div class="dots-row" id="dots"></div>
+  <div class="timer-center">
+    <div class="big-time" id="slide-time">0:00</div>
+    <div class="slide-obj" id="slide-obj">target 3:00</div>
+    <div class="status-card">
+      <div class="status-num" id="status-num" style="color:var(--green)">On track</div>
+      <div class="status-lbl" id="status-lbl"></div>
+      <div class="total-row">
+        <span>Elapsed: <b id="total-elapsed">0:00</b></span>
+        <span>Target: <b id="cumul-target">3:00</b></span>
+      </div>
+      <div class="track"><div class="fill" id="fill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <button class="btn btn-primary btn-next" id="btn-next" onclick="nextSlide()">Next slide →</button>
+</div>
+
+<!-- 4: Summary -->
+<div id="s-summary" class="screen">
+  <div class="screen-title">Summary</div>
+  <div class="sum-hero">
+    <div class="big" id="sum-diff">+0:00</div>
+    <div class="sub" id="sum-sub">total delay</div>
+  </div>
+  <div class="sum-scroll"><div id="sum-rows"></div></div>
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+    <button class="btn btn-primary" onclick="startPresentation()">↺ Run again</button>
+    <button class="btn btn-ghost" onclick="show('s-setup')">+ New presentation</button>
+  </div>
+</div>
+
+<!-- 5: Library -->
+<div id="s-library" class="screen">
+  <div class="screen-title">My presentations</div>
+  <div class="screen-sub">Saved on this device</div>
+  <div class="chip" onclick="triggerImport()">↑ Import JSON file</div>
+  <input type="file" id="import-input" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
+  <div class="lib-scroll"><div id="lib-list"></div></div>
+  <button class="btn btn-ghost" onclick="show('s-setup')">← Back</button>
+</div>
+
+<!-- 6: Rehearse -->
+<div id="s-rehearse" class="screen">
+  <div class="slide-badge" id="rh-badge">Slide 1 / 10</div>
+  <div class="dots-row" id="rh-dots"></div>
+  <div class="rh-center">
+    <div id="rh-running">
+      <div class="big-time" id="rh-time">0:00</div>
+      <div class="rh-hint">Timer running…</div>
+    </div>
+    <div id="rh-validated" style="display:none">
+      <div class="rh-recorded" id="rh-recorded" onclick="editRecorded()">0:00</div>
+      <input type="text" id="rh-edit-inp" class="rh-edit-inp" inputmode="decimal" placeholder="3:22"
+             onblur="confirmEdit()" onkeydown="if(event.key==='Enter')this.blur()">
+      <div class="rh-hint" id="rh-edit-hint">Tap the time to edit</div>
+    </div>
+  </div>
+  <div class="status-card">
+    <div class="status-num" id="rh-diff" style="color:var(--green)">−30:00</div>
+    <div class="status-lbl" id="rh-diff-lbl">ahead</div>
+    <div class="total-row">
+      <span>Recorded: <b id="rh-total">0:00</b></span>
+      <span>Total target: <b id="rh-obj">30:00</b></span>
+    </div>
+    <div class="rh-remaining" id="rh-remaining"></div>
+  </div>
+  <button class="btn btn-validate" id="rh-validate-btn" onclick="validateSlide()">⏹ Record this slide</button>
+  <button class="btn btn-primary" id="rh-next-btn" style="display:none;margin-top:10px" onclick="nextRehearse()">Next slide →</button>
+  <button class="btn btn-ghost" onclick="cancelRehearse()" style="margin-top:10px">← Cancel rehearsal</button>
+</div>
+
+<script>
+'use strict';
+const cfg  = { totalSec: 1800, slides: [] };
+const pres = { idx: 0, slideStart: 0, presStart: 0, actuals: [], raf: null, lock: null };
+const rh   = { idx: 0, count: 0, timings: [], timerStart: 0, raf: null };
+let _pending = null;
+
+// ── Storage ───────────────────────────────────────────────────────────────
+const STORE = 'slt_lib', LAST = 'slt_last';
+function getLib() { try { return JSON.parse(localStorage.getItem(STORE)) || []; } catch { return []; } }
+function setLib(lib) { try { localStorage.setItem(STORE, JSON.stringify(lib)); } catch (_) {} }
+
+function autoSave() {
+  try {
+    const slides = [];
+    for (let i = 0; i < cfg.slides.length; i++)
+      slides.push(parseT(document.getElementById('si' + i)?.value || '0'));
+    localStorage.setItem(LAST, JSON.stringify({
+      name: document.getElementById('pres-name').value.trim(),
+      totalMin: parseFloat(document.getElementById('total-min').value) || 30,
+      slideCount: parseInt(document.getElementById('slide-count').value) || 10,
+      slides,
+    }));
+  } catch (_) {}
+}
+
+function restoreLast() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LAST));
+    if (!d) return;
+    if (d.name)       document.getElementById('pres-name').value   = d.name;
+    if (d.totalMin)   document.getElementById('total-min').value   = d.totalMin;
+    if (d.slideCount) document.getElementById('slide-count').value = d.slideCount;
+    if (d.slides?.length) _pending = d.slides;
+  } catch (_) {}
+}
+
+// ── Library ───────────────────────────────────────────────────────────────
+function saveToLibrary() {
+  const name   = document.getElementById('pres-name').value.trim() || 'Untitled presentation';
+  const slides = cfg.slides.map((_, i) => parseT(document.getElementById('si' + i)?.value || '0'));
+  const lib = getLib(), idx = lib.findIndex(e => e.name === name);
+  const entry = {
+    id: idx >= 0 ? lib[idx].id : String(Date.now()), name,
+    savedAt: new Date().toISOString(),
+    totalMin: parseFloat(document.getElementById('total-min').value) || 30,
+    slideCount: cfg.slides.length, slides,
+  };
+  if (idx >= 0) lib[idx] = entry; else lib.unshift(entry);
+  setLib(lib);
+  const btn = document.getElementById('btn-save'), orig = btn.textContent;
+  btn.textContent = '✓ Saved'; btn.disabled = true;
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
+
+function loadEntry(id) {
+  const e = getLib().find(e => e.id === id);
+  if (!e) return;
+  document.getElementById('pres-name').value   = e.name;
+  document.getElementById('total-min').value   = e.totalMin;
+  document.getElementById('slide-count').value = e.slideCount;
+  _pending = e.slides;
+  goToConfig();
+}
+
+function deleteEntry(id) { setLib(getLib().filter(e => e.id !== id)); renderLibrary(); }
+
+function openLibrary() { renderLibrary(); show('s-library'); }
+
+function renderLibrary() {
+  const lib = getLib(), list = document.getElementById('lib-list');
+  list.replaceChildren();
+  if (!lib.length) {
+    const p = mk('p', 'lib-empty'); p.textContent = 'No saved presentations.'; list.appendChild(p); return;
+  }
+  lib.forEach(entry => {
+    const row = mk('div', 'lib-row'), info = mk('div', 'lib-info');
+    const nm = mk('div', 'lib-name'); nm.textContent = entry.name;
+    const meta = mk('div', 'lib-meta');
+    meta.textContent = entry.slideCount + ' slides · ' + entry.totalMin + ' min · ' + fmtDate(entry.savedAt);
+    info.append(nm, meta);
+    const acts = mk('div', 'lib-acts');
+    const loadBtn = mk('button', 'btn-load'); loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadEntry(entry.id));
+    const delBtn = mk('button', 'btn-del'); delBtn.textContent = '✕';
+    let confirmed = false;
+    delBtn.addEventListener('click', () => {
+      if (confirmed) { deleteEntry(entry.id); return; }
+      confirmed = true; delBtn.textContent = 'Delete?'; delBtn.classList.add('confirm');
+      setTimeout(() => { confirmed = false; delBtn.textContent = '✕'; delBtn.classList.remove('confirm'); }, 2500);
+    });
+    acts.append(loadBtn, delBtn); row.append(info, acts); list.appendChild(row);
+  });
+}
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  catch { return ''; }
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────
+function exportJSON() {
+  const name = document.getElementById('pres-name').value.trim() || 'presentation';
+  const data = { name, totalMin: parseFloat(document.getElementById('total-min').value) || 30,
+    slideCount: cfg.slides.length,
+    slides: cfg.slides.map((_, i) => parseT(document.getElementById('si' + i)?.value || '0')) };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob), a = mk('a');
+  a.href = url; a.download = name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function triggerImport() { document.getElementById('import-input').click(); }
+
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      document.getElementById('pres-name').value   = data.name || '';
+      document.getElementById('total-min').value   = data.totalMin || 30;
+      document.getElementById('slide-count').value = data.slideCount || data.slides?.length || 10;
+      _pending = data.slides || null;
+      goToConfig();
+    } catch (_) { alert('Invalid or corrupted JSON file.'); }
+  };
+  reader.readAsText(file);
+  document.getElementById('import-input').value = '';
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function parseT(val) {
+  val = String(val).trim();
+  let m = 0, s = 0;
+  if (val.includes(':')) { const p = val.split(':'); m = parseInt(p[0])||0; s = parseInt(p[1])||0; }
+  else if (val.includes('.')) { const p = val.split('.'); m = parseInt(p[0])||0; s = parseInt(p[1])||0; }
+  else { m = parseInt(val)||0; }
+  return m * 60 + Math.min(59, Math.max(0, s));
+}
+
+function fmtT(secs) {
+  secs = Math.max(0, Math.round(secs));
+  return Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
+}
+
+function fmt(secs) {
+  const neg = secs < 0, abs = Math.abs(Math.round(secs));
+  return (neg ? '−' : '') + Math.floor(abs / 60) + ':' + String(abs % 60).padStart(2, '0');
+}
+function fmtDiff(d) { return (d > 0 ? '+' : '') + fmt(d); }
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id !== 's-present') releaseLock();
+}
+
+function mk(tag, cls) { const el = document.createElement(tag); if (cls) el.className = cls; return el; }
+
+function cumulTarget(upTo) { return cfg.slides.slice(0, upTo + 1).reduce((a, s) => a + s.target, 0); }
+
+// ── Wake Lock ─────────────────────────────────────────────────────────────
+async function acquireLock() { try { pres.lock = await navigator.wakeLock?.request('screen'); } catch (_) {} }
+function releaseLock() { pres.lock?.release(); pres.lock = null; }
+
+// ── Setup → Config ────────────────────────────────────────────────────────
+function goToConfig() {
+  const totalMin = Math.max(0.5, parseFloat(document.getElementById('total-min').value) || 30);
+  const count    = Math.max(1, parseInt(document.getElementById('slide-count').value) || 10);
+  const name     = document.getElementById('pres-name').value.trim();
+  cfg.totalSec   = Math.round(totalMin * 60);
+  cfg.slides     = Array.from({ length: count }, () => ({ target: 0 }));
+  document.getElementById('config-sub').textContent = name ? name + ' · duration per slide' : 'Duration per slide';
+  buildRows(count);
+  if (_pending?.length) applyPending(); else distributeEvenly();
+  show('s-config');
+}
+
+function buildRows(count) {
+  const list = document.getElementById('slides-list');
+  list.replaceChildren();
+  for (let i = 0; i < count; i++) {
+    const row = mk('div', 'slide-row');
+    const lbl = mk('span', 'slide-lbl'); lbl.textContent = 'Slide ' + (i + 1);
+    const inp = mk('input');
+    inp.type = 'text'; inp.id = 'si' + i; inp.inputMode = 'decimal';
+    inp.placeholder = '0:00'; inp.value = '0:00';
+    inp.addEventListener('input', syncTotal);
+    inp.addEventListener('blur', () => { inp.value = fmtT(parseT(inp.value)); syncTotal(); });
+    const unit = mk('span', 'slide-unit'); unit.textContent = 'min:sec';
+    row.append(lbl, inp, unit); list.appendChild(row);
+  }
+}
+
+function applyPending() {
+  _pending.forEach((secs, i) => { const el = document.getElementById('si' + i); if (el) el.value = fmtT(secs); });
+  _pending = null; syncTotal();
+}
+
+function distributeEvenly() {
+  const perSec = Math.round(cfg.totalSec / cfg.slides.length);
+  cfg.slides.forEach((_, i) => { const el = document.getElementById('si' + i); if (el) el.value = fmtT(perSec); });
+  syncTotal();
+}
+
+function syncTotal() {
+  let total = 0;
+  cfg.slides.forEach((sl, i) => { const s = parseT(document.getElementById('si' + i)?.value || '0'); sl.target = s; total += s; });
+  const diff = total - cfg.totalSec, el = document.getElementById('total-display');
+  el.textContent = fmt(total);
+  el.className = 'total-bar-val ' + (Math.abs(diff) < 5 ? 'ok' : diff > 5 ? 'err' : 'warn');
+  autoSave();
+}
+
+// ── Presentation ──────────────────────────────────────────────────────────
+function startPresentation() {
+  syncTotal(); pres.idx = 0; pres.actuals = [];
+  const now = performance.now(); pres.presStart = pres.slideStart = now;
+  buildPresDots(); refreshPresent(); show('s-present'); acquireLock();
+  if (pres.raf) cancelAnimationFrame(pres.raf); tick();
+}
+
+function buildPresDots() {
+  const row = document.getElementById('dots'); row.replaceChildren();
+  cfg.slides.forEach((_, i) => { const d = mk('div', 'dot'); d.id = 'pd' + i; row.appendChild(d); });
+}
+
+function updatePresDots() {
+  cfg.slides.forEach((_, i) => {
+    const d = document.getElementById('pd' + i);
+    if (d) d.className = 'dot' + (i < pres.idx ? ' done' : i === pres.idx ? ' current' : '');
+  });
+}
+
+function refreshPresent() {
+  const i = pres.idx, n = cfg.slides.length;
+  document.getElementById('badge').textContent        = 'Slide ' + (i+1) + ' / ' + n;
+  document.getElementById('slide-obj').textContent    = 'target ' + fmt(cfg.slides[i].target);
+  document.getElementById('cumul-target').textContent = fmt(cumulTarget(i));
+  document.getElementById('btn-next').textContent     = i === n-1 ? '✓ Finish' : 'Next slide →';
+  updatePresDots();
+}
+
+function tick() {
+  const now = performance.now();
+  const slideElapsed = (now - pres.slideStart) / 1000;
+  const totalElapsed = (now - pres.presStart)  / 1000;
+  const diff = totalElapsed - cumulTarget(pres.idx);
+  document.getElementById('slide-time').textContent    = fmt(slideElapsed);
+  document.getElementById('total-elapsed').textContent = fmt(totalElapsed);
+  const numEl = document.getElementById('status-num'), lblEl = document.getElementById('status-lbl');
+  if (Math.abs(diff) <= 1) { numEl.textContent = 'On track';       numEl.style.color = 'var(--green)'; lblEl.textContent = ''; }
+  else if (diff > 0)        { numEl.textContent = '+' + fmt(diff);  numEl.style.color = 'var(--red)';   lblEl.textContent = 'behind — speed up'; }
+  else                      { numEl.textContent = fmt(diff);         numEl.style.color = 'var(--green)'; lblEl.textContent = 'ahead — slow down'; }
+  document.getElementById('fill').style.width = Math.min(100, totalElapsed / cfg.totalSec * 100) + '%';
+  pres.raf = requestAnimationFrame(tick);
+}
+
+function nextSlide() {
+  const now = performance.now(); pres.actuals.push((now - pres.slideStart) / 1000);
+  if (pres.idx === cfg.slides.length - 1) { cancelAnimationFrame(pres.raf); showSummary(); }
+  else { pres.idx++; pres.slideStart = now; refreshPresent(); }
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────
+function showSummary() {
+  const totalActual = pres.actuals.reduce((a, b) => a + b, 0), diff = totalActual - cfg.totalSec;
+  const bigEl = document.getElementById('sum-diff'), subEl = document.getElementById('sum-sub');
+  bigEl.textContent = fmtDiff(diff); bigEl.style.color = diff > 1 ? 'var(--red)' : 'var(--green)';
+  subEl.textContent = diff > 1 ? 'behind' : diff < -1 ? 'ahead' : 'Perfect!';
+  const rows = document.getElementById('sum-rows'); rows.replaceChildren();
+  cfg.slides.forEach((sl, i) => {
+    const actual = pres.actuals[i] ?? 0, d = actual - sl.target;
+    const color = Math.abs(d) < 2 ? 'var(--muted)' : d > 0 ? 'var(--red)' : 'var(--green)';
+    const row = mk('div', 'sum-row'), lbl = mk('span', 'sum-slide');
+    lbl.textContent = 'Slide ' + (i+1);
+    const right = mk('div'), act = mk('div', 'sum-actual'); act.textContent = fmt(actual);
+    const dEl = mk('div', 'sum-diff'); dEl.style.color = color; dEl.textContent = fmtDiff(d) + ' · target ' + fmt(sl.target);
+    right.append(act, dEl); row.append(lbl, right); rows.appendChild(row);
+  });
+  show('s-summary');
+}
+
+// ── Rehearsal ─────────────────────────────────────────────────────────────
+function startRehearse() {
+  rh.count = Math.max(1, parseInt(document.getElementById('slide-count').value) || 10);
+  rh.idx = 0; rh.timings = new Array(rh.count).fill(null);
+  cfg.totalSec = Math.round((parseFloat(document.getElementById('total-min').value) || 30) * 60);
+  buildRhDots(); updateRhDots();
+  document.getElementById('rh-obj').textContent = fmt(cfg.totalSec);
+  enterRunning(); show('s-rehearse');
+  if (rh.raf) cancelAnimationFrame(rh.raf);
+  rh.timerStart = performance.now(); rhTick();
+}
+
+function buildRhDots() {
+  const row = document.getElementById('rh-dots'); row.replaceChildren();
+  for (let i = 0; i < rh.count; i++) { const d = mk('div', 'dot'); d.id = 'rd' + i; row.appendChild(d); }
+}
+
+function updateRhDots() {
+  for (let i = 0; i < rh.count; i++) {
+    const d = document.getElementById('rd' + i);
+    if (d) d.className = 'dot' + (i < rh.idx ? ' done' : i === rh.idx ? ' current' : '');
+  }
+  document.getElementById('rh-badge').textContent = 'Slide ' + (rh.idx+1) + ' / ' + rh.count;
+}
+
+function enterRunning() {
+  document.getElementById('rh-running').style.display     = '';
+  document.getElementById('rh-validated').style.display   = 'none';
+  document.getElementById('rh-validate-btn').style.display = '';
+  document.getElementById('rh-next-btn').style.display    = 'none';
+}
+
+function rhTick() {
+  document.getElementById('rh-time').textContent = fmt((performance.now() - rh.timerStart) / 1000);
+  rh.raf = requestAnimationFrame(rhTick);
+}
+
+function validateSlide() {
+  const secs = Math.round((performance.now() - rh.timerStart) / 1000);
+  rh.timings[rh.idx] = secs; cancelAnimationFrame(rh.raf);
+  document.getElementById('rh-running').style.display      = 'none';
+  document.getElementById('rh-validated').style.display    = '';
+  document.getElementById('rh-validate-btn').style.display = 'none';
+  const rec = document.getElementById('rh-recorded');
+  rec.textContent = fmtT(secs); rec.style.display = '';
+  document.getElementById('rh-edit-inp').style.display  = 'none';
+  document.getElementById('rh-edit-hint').style.display = '';
+  const nb = document.getElementById('rh-next-btn');
+  nb.style.display = ''; nb.textContent = rh.idx === rh.count-1 ? '✓ Finish rehearsal' : 'Next slide →';
+  updateRhStatus();
+}
+
+function editRecorded() {
+  const rec = document.getElementById('rh-recorded'), inp = document.getElementById('rh-edit-inp');
+  rec.style.display = 'none'; inp.style.display = '';
+  document.getElementById('rh-edit-hint').style.display = 'none';
+  inp.value = fmtT(rh.timings[rh.idx]); inp.focus();
+}
+
+function confirmEdit() {
+  const inp = document.getElementById('rh-edit-inp'), secs = parseT(inp.value);
+  rh.timings[rh.idx] = secs; inp.style.display = 'none';
+  const rec = document.getElementById('rh-recorded');
+  rec.textContent = fmtT(secs); rec.style.display = '';
+  document.getElementById('rh-edit-hint').style.display = '';
+  updateRhStatus();
+}
+
+function updateRhStatus() {
+  const vals = rh.timings.filter(t => t !== null);
+  const total = vals.reduce((a, b) => a + b, 0), diff = total - cfg.totalSec;
+  document.getElementById('rh-total').textContent = fmt(total);
+  const numEl = document.getElementById('rh-diff'), lblEl = document.getElementById('rh-diff-lbl');
+  if (Math.abs(diff) < 2)  { numEl.textContent = 'On track';    numEl.style.color = 'var(--green)'; lblEl.textContent = ''; }
+  else if (diff > 0)        { numEl.textContent = fmtDiff(diff); numEl.style.color = 'var(--red)';   lblEl.textContent = 'over'; }
+  else                      { numEl.textContent = fmt(diff);      numEl.style.color = 'var(--green)'; lblEl.textContent = 'ahead'; }
+  const remaining = cfg.totalSec - total, remSlides = rh.count - vals.length;
+  const remEl = document.getElementById('rh-remaining');
+  if (remSlides > 0) {
+    const perSlide = Math.round(remaining / remSlides);
+    remEl.textContent = (remaining >= 0 ? fmt(remaining) : '−' + fmt(-remaining)) +
+      ' left · ' + remSlides + ' slide' + (remSlides > 1 ? 's' : '') +
+      ' (≈ ' + fmtT(Math.max(0, perSlide)) + '/slide)';
+    remEl.style.color = remaining < 0 ? 'var(--red)' : 'var(--muted)';
+  } else { remEl.textContent = ''; }
+}
+
+function nextRehearse() {
+  if (rh.idx === rh.count - 1) { finishRehearse(); return; }
+  rh.idx++; updateRhDots(); enterRunning();
+  rh.timerStart = performance.now();
+  if (rh.raf) cancelAnimationFrame(rh.raf); rhTick();
+}
+
+function finishRehearse() {
+  cancelAnimationFrame(rh.raf);
+  cfg.slides = rh.timings.map(t => ({ target: t ?? 0 }));
+  _pending   = rh.timings.map(t => t ?? 0);
+  document.getElementById('slide-count').value = rh.count;
+  goToConfig();
+}
+
+function cancelRehearse() { if (rh.raf) cancelAnimationFrame(rh.raf); show('s-setup'); }
+
+// ── Init ──────────────────────────────────────────────────────────────────
+restoreLast();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
