@@ -1,12 +1,12 @@
 # Slide Timer
 
-A mobile-first presentation timer that tracks your pace slide by slide. No dependencies, no build step, no server — one HTML file.
+A presentation timer that tracks your pace slide by slide. No dependencies, no build step, no server — one HTML file. Adapts to light and dark mode; the presentation screen is always dark for focus.
 
 ## Features
 
 - **Per-slide timing** — set a target duration for each slide; the app shows in real time whether you're ahead or behind
-- **Rehearsal mode** — time yourself during practice, record each slide's actual duration, then carry those timings directly into a configured run
-- **Library** — save and reload multiple presentations, stored locally on the device
+- **Rehearsal mode** — time yourself during practice with pause and reset per slide; record each slide's actual duration and carry those timings directly into your configured run
+- **Project management** — save and reload multiple presentations as named projects, stored locally on the device
 - **Export / Import** — back up any presentation as a JSON file; share it between devices by transferring the file
 - **Offline-ready PWA** — installs on Android and iPhone, works without internet after first load
 - **Wake Lock** — screen stays on during a presentation (Chrome / Android)

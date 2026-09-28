@@ -2,551 +2,615 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slide Timer</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d0d0d">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg: #0d0d0d; --surf: #1a1a1a; --surf2: #242424; --border: #2e2e2e;
-  --text: #f0f0f0; --muted: #888; --blue: #3b82f6; --green: #22c55e;
-  --red: #ef4444; --orange: #f97316;
+  --bg: #f6f6f4; --surf: #ffffff; --surf2: #f0f0ed; --border: #e2e2dd; --border-s: #cfcfc8;
+  --text: #1b1b19; --muted: #6c6c65; --faint: #97978f;
+  --accent: #2563eb; --accent-l: #3b82f6; --accent-bg: #eff6ff; --accent-bd: #bfdbfe;
+  --ok: #059669; --warn: #d97706; --err: #dc2626;
+  --radius: 9px; --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.05);
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; }
-.screen { display: none; flex-direction: column; min-height: 100dvh; padding: max(env(safe-area-inset-top),28px) 22px max(env(safe-area-inset-bottom),28px); }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111116; --surf: #1c1c23; --surf2: #25252e; --border: #2f2f3a; --border-s: #3d3d4a;
+    --text: #ececef; --muted: #9a9aa4; --faint: #6f6f7a;
+    --accent: #60a5fa; --accent-l: #93c5fd; --accent-bg: #1e3a5f; --accent-bd: #1d4ed8;
+    --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+    --shadow: 0 1px 3px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.35);
+  }
+}
+html, body { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ── Screens ── */
+.screen { display: none; min-height: 100dvh; flex-direction: column; }
 .screen.active { display: flex; }
-.screen-title { font-size: 1.65rem; font-weight: 700; }
-.screen-sub { font-size: .9rem; color: var(--muted); margin-top: 4px; margin-bottom: 20px; }
-.field { margin-bottom: 18px; }
-.field label { display: block; font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
-.field input { width: 100%; background: var(--surf); border: 1.5px solid var(--border); border-radius: 13px; padding: 15px 16px; font-size: 1.1rem; color: var(--text); -webkit-appearance: none; }
-.field input:focus { outline: 2px solid var(--blue); border-color: transparent; }
-.btn { display: block; width: 100%; padding: 18px; border: none; border-radius: 15px; font-size: 1.05rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .1s, opacity .1s; }
-.btn:active { transform: scale(.97); opacity: .85; }
-.btn:disabled { opacity: .5; }
-.btn-primary { background: var(--blue); color: #fff; }
-.btn-green   { background: var(--green); color: #fff; margin-top: 10px; }
-.btn-ghost   { background: var(--surf); color: var(--text); }
-.row2 { display: flex; gap: 10px; margin-top: 10px; }
-.row2 .btn { margin-top: 0; }
+
+/* ── Topbar ── */
+.topbar { flex: 0 0 auto; background: var(--surf); border-bottom: 1px solid var(--border);
+  padding: 0 20px; height: 52px; display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 0; z-index: 10; }
+.topbar-brand { font-weight: 700; font-size: .98rem; letter-spacing: -.01em; display: flex; align-items: center; gap: 7px; }
+.topbar-brand .dot-accent { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex-shrink: 0; }
+.topbar-crumb { font-size: .82rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.topbar-sep { font-size: .7rem; color: var(--faint); }
 .spacer { flex: 1; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surf2); border: 1px solid var(--border); border-radius: 20px; font-size: .85rem; color: var(--muted); cursor: pointer; margin-bottom: 20px; -webkit-tap-highlight-color: transparent; }
-/* Config */
-.slides-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-bottom: 12px; }
-.slide-row { display: grid; grid-template-columns: 5rem 1fr 3.5rem; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.slide-row:last-child { border-bottom: none; }
-.slide-lbl { font-size: .9rem; color: var(--muted); }
-.slide-unit { font-size: .75rem; color: var(--muted); }
-.slide-row input { background: var(--surf); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 1rem; color: var(--text); -webkit-appearance: none; text-align: right; width: 100%; }
-.slide-row input:focus { outline: 2px solid var(--blue); border-color: transparent; }
-.total-bar { background: var(--surf); border-radius: 13px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.total-bar-lbl { font-size: .8rem; color: var(--muted); }
-.total-bar-val { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ok { color: var(--green); } .warn { color: var(--orange); } .err { color: var(--red); }
-/* Present */
-#s-present { padding-left: 24px; padding-right: 24px; }
-.slide-badge { text-align: center; font-size: .82rem; color: var(--muted); letter-spacing: .09em; text-transform: uppercase; }
-.dots-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 10px 0 24px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
-.dot.done { background: var(--muted); } .dot.current { background: var(--blue); transform: scale(1.4); }
-.timer-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.big-time { font-size: 5.5rem; font-weight: 700; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.slide-obj { font-size: .9rem; color: var(--muted); margin-top: 4px; }
-.status-card { width: 100%; background: var(--surf); border-radius: 22px; padding: 22px 24px; margin-top: 28px; text-align: center; }
-.status-num { font-size: 3rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; transition: color .3s; }
-.status-lbl { font-size: .85rem; color: var(--muted); margin-top: 4px; min-height: 1.2em; }
-.total-row { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: 14px; }
-.track { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
-.fill  { height: 100%; background: var(--blue); border-radius: 2px; transition: width .5s linear; }
-.btn-next { margin-top: 24px; padding: 24px; font-size: 1.2rem; border-radius: 20px; }
-/* Summary */
-.sum-hero { background: var(--surf); border-radius: 18px; padding: 22px; text-align: center; margin-bottom: 20px; }
-.sum-hero .big { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.sum-hero .sub { font-size: .85rem; color: var(--muted); margin-top: 4px; }
-.sum-scroll { flex: 1; overflow-y: auto; }
-.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--border); }
-.sum-row:last-child { border-bottom: none; }
-.sum-slide { font-size: .9rem; color: var(--muted); }
-.sum-actual { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
-.sum-diff   { font-size: .78rem; margin-top: 2px; font-variant-numeric: tabular-nums; text-align: right; }
-/* Library */
-.lib-scroll { flex: 1; overflow-y: auto; margin-bottom: 12px; }
-.lib-empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 40px 0; }
-.lib-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); }
-.lib-row:last-child { border-bottom: none; }
-.lib-info { flex: 1; min-width: 0; padding-right: 12px; }
-.lib-name { font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lib-meta { font-size: .78rem; color: var(--muted); margin-top: 3px; }
-.lib-acts { display: flex; gap: 8px; flex-shrink: 0; }
-.btn-load { padding: 8px 14px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: .85rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.btn-load:active { opacity: .8; }
-.btn-del { padding: 8px 12px; background: var(--surf2); color: var(--muted); border: none; border-radius: 10px; font-size: .85rem; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s, color .2s; }
-.btn-del.confirm { background: var(--red); color: #fff; }
-.btn-del:active { opacity: .8; }
-/* Rehearsal */
-#s-rehearse { padding-left: 24px; padding-right: 24px; }
-.rh-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.rh-hint { font-size: .85rem; color: var(--muted); margin-top: 10px; }
-.rh-recorded { font-size: 5.5rem; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1; color: var(--green); cursor: pointer; border-bottom: 2px solid currentColor; padding-bottom: 4px; display: inline-block; }
-.rh-edit-inp { display: none; width: 175px; background: var(--surf); border: 2px solid var(--blue); border-radius: 13px; padding: 13px 16px; font-size: 1.8rem; color: var(--text); text-align: center; font-variant-numeric: tabular-nums; -webkit-appearance: none; margin-top: 10px; }
+.tb-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px;
+  border-radius: var(--radius); border: 1px solid var(--border); background: var(--surf);
+  color: var(--text); font-size: .82rem; font-weight: 500; white-space: nowrap; }
+.tb-btn:hover { background: var(--surf2); border-color: var(--border-s); }
+.tb-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tb-btn.primary:hover { filter: brightness(1.08); }
+.tb-btn.ghost { border-color: transparent; background: transparent; }
+.tb-btn.ghost:hover { background: var(--surf2); }
+
+/* ── Wrap ── */
+.wrap { width: 100%; max-width: 680px; margin: 0 auto; padding: 0 20px; }
+.page-body { flex: 1; overflow-y: auto; padding-top: 28px; padding-bottom: 36px; }
+
+/* ── Buttons (page-level) ── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border-s);
+  background: var(--surf); color: var(--text); font-size: .88rem; font-weight: 500; }
+.btn:hover { background: var(--surf2); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.full { display: flex; width: 100%; padding: 11px 16px; }
+.btn.danger { color: var(--err); border-color: currentColor; background: transparent; }
+.btn.danger:hover { background: rgba(220,38,38,.07); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Cards ── */
+.card { background: var(--surf); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 20px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 10px; }
+
+/* ── Form fields ── */
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: .75rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: 6px; font-weight: 500; }
+.field input { width: 100%; background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 9px 12px; font-size: .95rem; color: var(--text); }
+.field input:focus { outline: none; border-color: var(--accent); }
+
+/* ── HOME ── */
+.home-hero { padding: 36px 0 24px; }
+.home-hero h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: 6px; }
+.home-hero h1 span { color: var(--accent); }
+.home-hero p  { color: var(--muted); font-size: .9rem; }
+.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.proj-card { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.proj-card:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.proj-card h3 { font-size: .96rem; font-weight: 600; margin-bottom: 5px; }
+.proj-card .meta { color: var(--muted); font-size: .78rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.badge { background: var(--surf2); border: 1px solid var(--border); border-radius: 20px;
+  padding: 2px 8px; font-size: .73rem; color: var(--muted); }
+.home-empty { color: var(--muted); font-size: .9rem; padding: 48px 0; text-align: center; }
+.proj-card-footer { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.section-label { font-size: .73rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--faint); font-weight: 600; margin-bottom: 10px; }
+
+/* ── Timing screen ── */
+.slides-table { width: 100%; border-collapse: collapse; }
+.slides-table th { text-align: left; font-size: .73rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); padding: 0 0 8px; font-weight: 500; }
+.slides-table td { padding: 6px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.slides-table tr:last-child td { border-bottom: none; }
+.slide-num { font-size: .82rem; color: var(--muted); width: 70px; }
+.slide-inp { background: var(--surf2); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: .9rem; color: var(--text); width: 90px; text-align: right;
+  font-variant-numeric: tabular-nums; }
+.slide-inp:focus { outline: none; border-color: var(--accent); background: var(--surf); }
+.slide-unit { font-size: .75rem; color: var(--faint); padding-left: 6px; }
+.total-strip { display: flex; align-items: center; justify-content: space-between;
+  background: var(--surf2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 14px; margin: 14px 0; }
+.total-strip-lbl { font-size: .82rem; color: var(--muted); }
+.total-strip-val { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ok  { color: var(--ok); }
+.warn{ color: var(--warn); }
+.err { color: var(--err); }
+
+/* ── Rehearse ── */
+.rh-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 28px 20px; text-align: center; max-width: 480px; margin: 0 auto; width: 100%; }
+.rh-slide-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 8px; }
+.rh-timer { font-size: 4.5rem; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1; }
+.rh-hint { font-size: .82rem; color: var(--muted); margin-top: 8px; min-height: 1.2em; }
+.rh-dots { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin: 16px 0; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-s); }
+.dot.done { background: var(--muted); }
+.dot.current { background: var(--accent); transform: scale(1.4); }
+.rh-validated-time { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--accent); cursor: pointer; border-bottom: 2px solid var(--accent); padding-bottom: 2px; display: inline-block; }
+.rh-edit-inp { display: none; background: var(--surf2); border: 2px solid var(--accent);
+  border-radius: var(--radius); padding: 10px 14px; font-size: 1.6rem; color: var(--text);
+  text-align: center; font-variant-numeric: tabular-nums; width: 160px; margin-top: 6px; }
 .rh-edit-inp:focus { outline: none; }
-.rh-remaining { font-size: .8rem; margin-top: 10px; min-height: 1em; }
-.btn-validate { background: var(--surf2); border: 2px solid var(--blue); color: var(--text); margin-top: 16px; }
+.rh-controls { display: flex; gap: 8px; margin-top: 14px; justify-content: center; }
+.rh-ctrl { padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border-s);
+  background: var(--surf); color: var(--text); font-size: .85rem; font-weight: 500; }
+.rh-ctrl:hover { background: var(--surf2); }
+.rh-ctrl.paused { background: rgba(217,119,6,.1); border-color: var(--warn); color: var(--warn); }
+.rh-status { width: 100%; background: var(--surf); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-top: 20px; box-shadow: var(--shadow); text-align: left; }
+.rh-status-row { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: 8px; }
+.rh-diff-num { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.rh-remaining { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+.rh-bottom { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 16px 20px max(env(safe-area-inset-bottom),16px); max-width: 480px; align-self: center; }
+
+/* ── Present (full screen dark, mobile-first) ── */
+#s-present { background: #0d0d0d; color: #f0f0f0; min-height: 100dvh;
+  display: none; flex-direction: column;
+  padding: max(env(safe-area-inset-top),24px) 22px max(env(safe-area-inset-bottom),24px); }
+#s-present.active { display: flex; }
+.pres-badge { font-size: .78rem; text-transform: uppercase; letter-spacing: .09em; color: #888; }
+.pres-dots { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 20px; }
+.pdot { width: 7px; height: 7px; border-radius: 50%; background: #333; }
+.pdot.done { background: #666; }
+.pdot.cur  { background: #3b82f6; transform: scale(1.4); }
+.pres-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.big-time { font-size: 5.5rem; font-weight: 700; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.pres-obj { font-size: .88rem; color: #666; margin-top: 4px; }
+.pres-card { width: 100%; background: #1a1a1a; border-radius: 18px; padding: 18px 20px; margin-top: 22px; }
+.pres-diff { font-size: 2.8rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; line-height: 1.1; transition: color .3s; }
+.pres-diff-lbl { font-size: .82rem; color: #666; text-align: center; margin-top: 3px; min-height: 1.1em; }
+.pres-totals { display: flex; justify-content: space-between; font-size: .75rem; color: #666; margin-top: 10px; }
+.pres-track { height: 2px; background: #2a2a2a; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.pres-fill  { height: 100%; background: #3b82f6; border-radius: 2px; transition: width .5s linear; }
+.btn-next-pres { margin-top: 20px; width: 100%; padding: 22px; border: none; border-radius: 18px;
+  background: #3b82f6; color: #fff; font-size: 1.15rem; font-weight: 700;
+  -webkit-tap-highlight-color: transparent; }
+.btn-next-pres:active { transform: scale(.97); opacity: .9; }
+
+/* ── Summary ── */
+.sum-hero { text-align: center; padding: 28px 0 20px; }
+.sum-hero .big { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.sum-hero .sub { font-size: .88rem; color: var(--muted); margin-top: 4px; }
+.sum-row { display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid var(--border); }
+.sum-row:last-child { border-bottom: none; }
+.sum-slide { font-size: .88rem; color: var(--muted); }
+.sum-right { text-align: right; }
+.sum-actual { font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sum-diff-lbl { font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 
-<!-- 1: Setup -->
-<div id="s-setup" class="screen active">
-  <div class="screen-title">Slide Timer</div>
-  <div class="screen-sub">Presentation setup</div>
-  <div class="chip" onclick="openLibrary()">📁 My presentations</div>
-  <div class="field">
-    <label>Presentation name</label>
-    <input type="text" id="pres-name" placeholder="E.g. Client demo, Q3 kickoff…" autocomplete="off" autocapitalize="words" oninput="autoSave()">
+<!-- ══════════════════ HOME ══════════════════ -->
+<div id="s-home" class="screen active">
+  <div class="topbar">
+    <div class="topbar-brand"><span class="dot-accent"></span>Slide Timer</div>
+    <div class="spacer"></div>
+    <button class="tb-btn primary" onclick="newProject()">+ New</button>
+    <button class="tb-btn ghost" onclick="triggerImport()" title="Import JSON">↑ Import</button>
   </div>
-  <div class="field">
-    <label>Total duration (minutes)</label>
-    <input type="number" id="total-min" min="1" max="360" value="30" inputmode="decimal" oninput="autoSave()">
-  </div>
-  <div class="field">
-    <label>Number of slides</label>
-    <input type="number" id="slide-count" min="1" max="99" value="10" inputmode="numeric" oninput="autoSave()">
-  </div>
-  <div class="spacer"></div>
-  <button class="btn btn-primary" onclick="goToConfig()">Configure slides →</button>
-  <button class="btn btn-ghost" onclick="startRehearse()" style="margin-top:10px">⏱ Time your slides →</button>
-</div>
-
-<!-- 2: Config -->
-<div id="s-config" class="screen">
-  <div class="screen-title">Slide timing</div>
-  <div class="screen-sub" id="config-sub">Duration per slide</div>
-  <div class="chip" onclick="distributeEvenly()">↔ Distribute evenly</div>
-  <div class="slides-scroll"><div id="slides-list"></div></div>
-  <div class="total-bar">
-    <span class="total-bar-lbl">Configured total</span>
-    <span class="total-bar-val" id="total-display">0:00</span>
-  </div>
-  <button class="btn btn-primary" onclick="startPresentation()">Start →</button>
-  <button class="btn btn-green" id="btn-save" onclick="saveToLibrary()">Save to library</button>
-  <div class="row2">
-    <button class="btn btn-ghost" onclick="show('s-setup')">← Back</button>
-    <button class="btn btn-ghost" onclick="exportJSON()">Export JSON</button>
-  </div>
-</div>
-
-<!-- 3: Present -->
-<div id="s-present" class="screen">
-  <div class="slide-badge" id="badge">Slide 1 / 10</div>
-  <div class="dots-row" id="dots"></div>
-  <div class="timer-center">
-    <div class="big-time" id="slide-time">0:00</div>
-    <div class="slide-obj" id="slide-obj">target 3:00</div>
-    <div class="status-card">
-      <div class="status-num" id="status-num" style="color:var(--green)">On track</div>
-      <div class="status-lbl" id="status-lbl"></div>
-      <div class="total-row">
-        <span>Elapsed: <b id="total-elapsed">0:00</b></span>
-        <span>Target: <b id="cumul-target">3:00</b></span>
+  <div class="page-body">
+    <div class="wrap">
+      <div class="home-hero">
+        <h1>My <span>Presentations</span></h1>
+        <p>Prepare, rehearse, and present with a slide-by-slide timer.</p>
       </div>
-      <div class="track"><div class="fill" id="fill" style="width:0%"></div></div>
+      <div class="section-label">Recent</div>
+      <div id="proj-grid"></div>
     </div>
   </div>
-  <button class="btn btn-primary btn-next" id="btn-next" onclick="nextSlide()">Next slide →</button>
-</div>
-
-<!-- 4: Summary -->
-<div id="s-summary" class="screen">
-  <div class="screen-title">Summary</div>
-  <div class="sum-hero">
-    <div class="big" id="sum-diff">+0:00</div>
-    <div class="sub" id="sum-sub">total delay</div>
-  </div>
-  <div class="sum-scroll"><div id="sum-rows"></div></div>
-  <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
-    <button class="btn btn-primary" onclick="startPresentation()">↺ Run again</button>
-    <button class="btn btn-ghost" onclick="show('s-setup')">+ New presentation</button>
-  </div>
-</div>
-
-<!-- 5: Library -->
-<div id="s-library" class="screen">
-  <div class="screen-title">My presentations</div>
-  <div class="screen-sub">Saved on this device</div>
-  <div class="chip" onclick="triggerImport()">↑ Import JSON file</div>
   <input type="file" id="import-input" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
-  <div class="lib-scroll"><div id="lib-list"></div></div>
-  <button class="btn btn-ghost" onclick="show('s-setup')">← Back</button>
 </div>
 
-<!-- 6: Rehearse -->
-<div id="s-rehearse" class="screen">
-  <div class="slide-badge" id="rh-badge">Slide 1 / 10</div>
-  <div class="dots-row" id="rh-dots"></div>
-  <div class="rh-center">
-    <div id="rh-running">
-      <div class="big-time" id="rh-time">0:00</div>
-      <div class="rh-hint">Timer running…</div>
+<!-- ══════════════════ SETUP ══════════════════ -->
+<div id="s-setup" class="screen">
+  <div class="topbar">
+    <button class="tb-btn ghost" onclick="navBack()">← Back</button>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-crumb" id="setup-crumb">New presentation</span>
+    <div class="spacer"></div>
+    <button class="tb-btn primary" onclick="saveProject()" id="setup-save-btn">Save</button>
+  </div>
+  <div class="page-body">
+    <div class="wrap">
+      <h2 style="font-size:1.35rem;font-weight:700;margin-bottom:20px">Configure</h2>
+      <div class="field">
+        <label>Presentation name</label>
+        <input type="text" id="pres-name" placeholder="E.g. Client demo, Q3 kickoff…" autocomplete="off" autocapitalize="words">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="field">
+          <label>Total duration (min)</label>
+          <input type="number" id="total-min" min="1" max="360" value="30" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label>Number of slides</label>
+          <input type="number" id="slide-count" min="1" max="99" value="10" inputmode="numeric">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn primary full" onclick="goToTiming()">Set slide timings →</button>
+      </div>
     </div>
-    <div id="rh-validated" style="display:none">
-      <div class="rh-recorded" id="rh-recorded" onclick="editRecorded()">0:00</div>
+  </div>
+</div>
+
+<!-- ══════════════════ TIMING ══════════════════ -->
+<div id="s-timing" class="screen">
+  <div class="topbar">
+    <button class="tb-btn ghost" onclick="navBack()">← Back</button>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-crumb" id="timing-crumb"></span>
+    <div class="spacer"></div>
+    <button class="tb-btn" onclick="exportJSON()" title="Export JSON">↓ Export</button>
+    <button class="tb-btn primary" onclick="saveProject()" id="timing-save-btn">Save</button>
+  </div>
+  <div class="page-body">
+    <div class="wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-size:1.35rem;font-weight:700">Slide timings</h2>
+        <button class="btn" onclick="distributeEvenly()" style="font-size:.78rem">↔ Distribute evenly</button>
+      </div>
+      <div class="card" style="padding:14px 18px">
+        <table class="slides-table">
+          <thead><tr>
+            <th>Slide</th><th colspan="2">Target</th>
+          </tr></thead>
+          <tbody id="slides-list"></tbody>
+        </table>
+      </div>
+      <div class="total-strip">
+        <span class="total-strip-lbl">Configured total</span>
+        <span class="total-strip-val" id="total-display">0:00</span>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn primary" style="flex:2" onclick="startPresentation()">▶ Start presentation</button>
+        <button class="btn" style="flex:1" onclick="goToRehearse()">⏱ Rehearse</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ REHEARSE ══════════════════ -->
+<div id="s-rehearse" class="screen">
+  <div class="topbar">
+    <button class="tb-btn ghost" onclick="navBack()">← Back</button>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-crumb" id="rh-crumb">Rehearsal</span>
+    <div class="spacer"></div>
+    <span id="rh-badge" style="font-size:.82rem;color:var(--muted)">Slide 1 / 10</span>
+  </div>
+  <div class="rh-body">
+    <div class="rh-dots" id="rh-dots"></div>
+    <div id="rh-running">
+      <div class="rh-slide-label" id="rh-slide-lbl">Slide 1</div>
+      <div class="rh-timer" id="rh-time">0:00</div>
+      <div class="rh-hint" id="rh-hint">Timer running</div>
+      <div class="rh-controls">
+        <button class="rh-ctrl" id="rh-pause-btn" onclick="togglePause()">⏸ Pause</button>
+        <button class="rh-ctrl" onclick="resetSlideTimer()">↺ Reset</button>
+      </div>
+    </div>
+    <div id="rh-validated" style="display:none;text-align:center">
+      <div class="rh-slide-label" id="rh-val-lbl">Slide 1 — recorded</div>
+      <div class="rh-validated-time" id="rh-recorded" onclick="editRecorded()">0:00</div>
       <input type="text" id="rh-edit-inp" class="rh-edit-inp" inputmode="decimal" placeholder="3:22"
              onblur="confirmEdit()" onkeydown="if(event.key==='Enter')this.blur()">
-      <div class="rh-hint" id="rh-edit-hint">Tap the time to edit</div>
+      <div class="rh-hint" id="rh-edit-hint">Tap time to edit</div>
+    </div>
+    <div class="rh-status" id="rh-status" style="display:none">
+      <div class="rh-diff-num" id="rh-diff">−</div>
+      <div style="font-size:.78rem;color:var(--muted)" id="rh-diff-lbl">—</div>
+      <div class="rh-status-row">
+        <span>Recorded: <b id="rh-total" style="color:var(--text)">0:00</b></span>
+        <span>Target: <b id="rh-obj" style="color:var(--text)">30:00</b></span>
+      </div>
+      <div class="rh-remaining" id="rh-remaining"></div>
     </div>
   </div>
-  <div class="status-card">
-    <div class="status-num" id="rh-diff" style="color:var(--green)">−30:00</div>
-    <div class="status-lbl" id="rh-diff-lbl">ahead</div>
-    <div class="total-row">
-      <span>Recorded: <b id="rh-total">0:00</b></span>
-      <span>Total target: <b id="rh-obj">30:00</b></span>
-    </div>
-    <div class="rh-remaining" id="rh-remaining"></div>
+  <div class="rh-bottom">
+    <button class="btn primary full" id="rh-validate-btn" onclick="validateSlide()">⏹ Record this slide</button>
+    <button class="btn full" id="rh-next-btn" style="display:none" onclick="nextRehearse()">Next slide →</button>
   </div>
-  <button class="btn btn-validate" id="rh-validate-btn" onclick="validateSlide()">⏹ Record this slide</button>
-  <button class="btn btn-primary" id="rh-next-btn" style="display:none;margin-top:10px" onclick="nextRehearse()">Next slide →</button>
-  <button class="btn btn-ghost" onclick="cancelRehearse()" style="margin-top:10px">← Cancel rehearsal</button>
+</div>
+
+<!-- ══════════════════ PRESENT (full screen dark, mobile-first) ══════════════════ -->
+<div id="s-present" class="screen">
+  <div class="pres-badge" id="pres-badge">Slide 1 / 10</div>
+  <div class="pres-dots" id="pres-dots"></div>
+  <div class="pres-center">
+    <div class="big-time" id="slide-time">0:00</div>
+    <div class="pres-obj" id="pres-obj">target 3:00</div>
+    <div class="pres-card">
+      <div class="pres-diff" id="pres-diff">On track</div>
+      <div class="pres-diff-lbl" id="pres-diff-lbl"></div>
+      <div class="pres-totals">
+        <span>Elapsed: <b id="pres-elapsed" style="color:#ccc">0:00</b></span>
+        <span>Target: <b id="pres-target" style="color:#ccc">3:00</b></span>
+      </div>
+      <div class="pres-track"><div class="pres-fill" id="pres-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <button class="btn-next-pres" id="btn-next" onclick="nextSlide()">Next slide →</button>
+</div>
+
+<!-- ══════════════════ SUMMARY ══════════════════ -->
+<div id="s-summary" class="screen">
+  <div class="topbar">
+    <button class="tb-btn ghost" onclick="navBack()">← Back</button>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-crumb">Summary</span>
+  </div>
+  <div class="page-body">
+    <div class="wrap">
+      <div class="sum-hero">
+        <div class="big" id="sum-diff">+0:00</div>
+        <div class="sub" id="sum-sub">total</div>
+      </div>
+      <div class="card" style="padding:14px 18px">
+        <div id="sum-rows"></div>
+      </div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn primary" style="flex:1" onclick="startPresentation()">↺ Run again</button>
+        <button class="btn" style="flex:1" onclick="goToTiming()">← Edit timings</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 'use strict';
+
+const STORE = 'slt_projects';
+let _projects = [], _cur = null;
 const cfg  = { totalSec: 1800, slides: [] };
 const pres = { idx: 0, slideStart: 0, presStart: 0, actuals: [], raf: null, lock: null };
-const rh   = { idx: 0, count: 0, timings: [], timerStart: 0, raf: null };
-let _pending = null;
+const rh   = { idx: 0, count: 0, timings: [], timerStart: 0, raf: null, paused: false, elapsed: 0 };
 
-// ── Storage ───────────────────────────────────────────────────────────────
-const STORE = 'slt_lib', LAST = 'slt_last';
-function getLib() { try { return JSON.parse(localStorage.getItem(STORE)) || []; } catch { return []; } }
-function setLib(lib) { try { localStorage.setItem(STORE, JSON.stringify(lib)); } catch (_) {} }
-
-function autoSave() {
-  try {
-    const slides = [];
-    for (let i = 0; i < cfg.slides.length; i++)
-      slides.push(parseT(document.getElementById('si' + i)?.value || '0'));
-    localStorage.setItem(LAST, JSON.stringify({
-      name: document.getElementById('pres-name').value.trim(),
-      totalMin: parseFloat(document.getElementById('total-min').value) || 30,
-      slideCount: parseInt(document.getElementById('slide-count').value) || 10,
-      slides,
-    }));
-  } catch (_) {}
+// ── History / navigation ──────────────────────────────────────────────────
+let _stack = ['s-home'];
+function navigate(id) {
+  if (_stack[_stack.length-1] !== id) { _stack.push(id); history.pushState({ screen: id }, ''); }
+  _show(id);
 }
-
-function restoreLast() {
-  try {
-    const d = JSON.parse(localStorage.getItem(LAST));
-    if (!d) return;
-    if (d.name)       document.getElementById('pres-name').value   = d.name;
-    if (d.totalMin)   document.getElementById('total-min').value   = d.totalMin;
-    if (d.slideCount) document.getElementById('slide-count').value = d.slideCount;
-    if (d.slides?.length) _pending = d.slides;
-  } catch (_) {}
-}
-
-// ── Library ───────────────────────────────────────────────────────────────
-function saveToLibrary() {
-  const name   = document.getElementById('pres-name').value.trim() || 'Untitled presentation';
-  const slides = cfg.slides.map((_, i) => parseT(document.getElementById('si' + i)?.value || '0'));
-  const lib = getLib(), idx = lib.findIndex(e => e.name === name);
-  const entry = {
-    id: idx >= 0 ? lib[idx].id : String(Date.now()), name,
-    savedAt: new Date().toISOString(),
-    totalMin: parseFloat(document.getElementById('total-min').value) || 30,
-    slideCount: cfg.slides.length, slides,
-  };
-  if (idx >= 0) lib[idx] = entry; else lib.unshift(entry);
-  setLib(lib);
-  const btn = document.getElementById('btn-save'), orig = btn.textContent;
-  btn.textContent = '✓ Saved'; btn.disabled = true;
-  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
-}
-
-function loadEntry(id) {
-  const e = getLib().find(e => e.id === id);
-  if (!e) return;
-  document.getElementById('pres-name').value   = e.name;
-  document.getElementById('total-min').value   = e.totalMin;
-  document.getElementById('slide-count').value = e.slideCount;
-  _pending = e.slides;
-  goToConfig();
-}
-
-function deleteEntry(id) { setLib(getLib().filter(e => e.id !== id)); renderLibrary(); }
-
-function openLibrary() { renderLibrary(); show('s-library'); }
-
-function renderLibrary() {
-  const lib = getLib(), list = document.getElementById('lib-list');
-  list.replaceChildren();
-  if (!lib.length) {
-    const p = mk('p', 'lib-empty'); p.textContent = 'No saved presentations.'; list.appendChild(p); return;
+function navBack() { if (_stack.length > 1) history.back(); }
+window.addEventListener('popstate', () => {
+  _stack.pop();
+  const prev = _stack[_stack.length-1] || 's-home';
+  _show(prev);
+  if (prev !== 's-present') releaseLock();
+  if (prev !== 's-rehearse' && prev !== 's-present') {
+    if (pres.raf) cancelAnimationFrame(pres.raf);
+    if (rh.raf)  cancelAnimationFrame(rh.raf);
   }
-  lib.forEach(entry => {
-    const row = mk('div', 'lib-row'), info = mk('div', 'lib-info');
-    const nm = mk('div', 'lib-name'); nm.textContent = entry.name;
-    const meta = mk('div', 'lib-meta');
-    meta.textContent = entry.slideCount + ' slides · ' + entry.totalMin + ' min · ' + fmtDate(entry.savedAt);
-    info.append(nm, meta);
-    const acts = mk('div', 'lib-acts');
-    const loadBtn = mk('button', 'btn-load'); loadBtn.textContent = 'Load';
-    loadBtn.addEventListener('click', () => loadEntry(entry.id));
-    const delBtn = mk('button', 'btn-del'); delBtn.textContent = '✕';
-    let confirmed = false;
-    delBtn.addEventListener('click', () => {
-      if (confirmed) { deleteEntry(entry.id); return; }
-      confirmed = true; delBtn.textContent = 'Delete?'; delBtn.classList.add('confirm');
-      setTimeout(() => { confirmed = false; delBtn.textContent = '✕'; delBtn.classList.remove('confirm'); }, 2500);
-    });
-    acts.append(loadBtn, delBtn); row.append(info, acts); list.appendChild(row);
-  });
-}
-
-function fmtDate(iso) {
-  try { return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }); }
-  catch { return ''; }
-}
-
-// ── Export / Import ───────────────────────────────────────────────────────
-function exportJSON() {
-  const name = document.getElementById('pres-name').value.trim() || 'presentation';
-  const data = { name, totalMin: parseFloat(document.getElementById('total-min').value) || 30,
-    slideCount: cfg.slides.length,
-    slides: cfg.slides.map((_, i) => parseT(document.getElementById('si' + i)?.value || '0')) };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob), a = mk('a');
-  a.href = url; a.download = name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-}
-
-function triggerImport() { document.getElementById('import-input').click(); }
-
-function importJSON(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      document.getElementById('pres-name').value   = data.name || '';
-      document.getElementById('total-min').value   = data.totalMin || 30;
-      document.getElementById('slide-count').value = data.slideCount || data.slides?.length || 10;
-      _pending = data.slides || null;
-      goToConfig();
-    } catch (_) { alert('Invalid or corrupted JSON file.'); }
-  };
-  reader.readAsText(file);
-  document.getElementById('import-input').value = '';
-}
-
-// ── Utilities ─────────────────────────────────────────────────────────────
-function parseT(val) {
-  val = String(val).trim();
-  let m = 0, s = 0;
-  if (val.includes(':')) { const p = val.split(':'); m = parseInt(p[0])||0; s = parseInt(p[1])||0; }
-  else if (val.includes('.')) { const p = val.split('.'); m = parseInt(p[0])||0; s = parseInt(p[1])||0; }
-  else { m = parseInt(val)||0; }
-  return m * 60 + Math.min(59, Math.max(0, s));
-}
-
-function fmtT(secs) {
-  secs = Math.max(0, Math.round(secs));
-  return Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
-}
-
-function fmt(secs) {
-  const neg = secs < 0, abs = Math.abs(Math.round(secs));
-  return (neg ? '−' : '') + Math.floor(abs / 60) + ':' + String(abs % 60).padStart(2, '0');
-}
-function fmtDiff(d) { return (d > 0 ? '+' : '') + fmt(d); }
-
-function show(id) {
+});
+function _show(id) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if (id !== 's-present') releaseLock();
 }
 
-function mk(tag, cls) { const el = document.createElement(tag); if (cls) el.className = cls; return el; }
+// ── Storage ───────────────────────────────────────────────────────────────
+function loadProjects() { try { _projects = JSON.parse(localStorage.getItem(STORE)) || []; } catch { _projects = []; } }
+function saveStorage()  { try { localStorage.setItem(STORE, JSON.stringify(_projects)); } catch {} }
 
-function cumulTarget(upTo) { return cfg.slides.slice(0, upTo + 1).reduce((a, s) => a + s.target, 0); }
+// ── Home ──────────────────────────────────────────────────────────────────
+function renderHome() {
+  loadProjects();
+  const grid = document.getElementById('proj-grid');
+  grid.replaceChildren();
+  if (!_projects.length) {
+    const p = mk('p', 'home-empty');
+    p.textContent = 'No presentations yet — create your first one.';
+    grid.appendChild(p); return;
+  }
+  const g = mk('div', 'proj-grid');
+  _projects.forEach(proj => {
+    const card = mk('div', 'card proj-card');
+    const h3 = mk('h3'); h3.textContent = proj.name;
+    const meta = mk('div', 'meta');
+    const b1 = mk('span', 'badge'); b1.textContent = proj.slideCount + ' slides';
+    const b2 = mk('span', 'badge'); b2.textContent = proj.totalMin + ' min';
+    const date = mk('span'); date.textContent = fmtDate(proj.savedAt); date.style.color = 'var(--faint)';
+    meta.append(b1, b2, date);
+    const footer = mk('div', 'proj-card-footer');
+    const openBtn = mk('button', 'btn primary'); openBtn.textContent = 'Open';
+    openBtn.addEventListener('click', e => { e.stopPropagation(); openProject(proj.id); });
+    const delBtn = mk('button', 'btn danger'); delBtn.style.marginLeft = 'auto'; delBtn.textContent = 'Delete';
+    let confirmed = false;
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirmed) { deleteProject(proj.id); return; }
+      confirmed = true; delBtn.textContent = 'Confirm?'; delBtn.style.background = 'rgba(220,38,38,.1)';
+      setTimeout(() => { confirmed = false; delBtn.textContent = 'Delete'; delBtn.style.background = ''; }, 2500);
+    });
+    footer.append(openBtn, delBtn);
+    card.addEventListener('click', () => openProject(proj.id));
+    card.append(h3, meta, footer);
+    g.appendChild(card);
+  });
+  grid.appendChild(g);
+}
 
-// ── Wake Lock ─────────────────────────────────────────────────────────────
-async function acquireLock() { try { pres.lock = await navigator.wakeLock?.request('screen'); } catch (_) {} }
-function releaseLock() { pres.lock?.release(); pres.lock = null; }
+function newProject() {
+  _cur = { id: String(Date.now()), name: '', totalMin: 30, slideCount: 10, slides: [], savedAt: new Date().toISOString() };
+  document.getElementById('pres-name').value   = '';
+  document.getElementById('total-min').value   = 30;
+  document.getElementById('slide-count').value = 10;
+  document.getElementById('setup-crumb').textContent = 'New presentation';
+  navigate('s-setup');
+}
 
-// ── Setup → Config ────────────────────────────────────────────────────────
-function goToConfig() {
-  const totalMin = Math.max(0.5, parseFloat(document.getElementById('total-min').value) || 30);
-  const count    = Math.max(1, parseInt(document.getElementById('slide-count').value) || 10);
-  const name     = document.getElementById('pres-name').value.trim();
-  cfg.totalSec   = Math.round(totalMin * 60);
-  cfg.slides     = Array.from({ length: count }, () => ({ target: 0 }));
-  document.getElementById('config-sub').textContent = name ? name + ' · duration per slide' : 'Duration per slide';
-  buildRows(count);
-  if (_pending?.length) applyPending(); else distributeEvenly();
-  show('s-config');
+function openProject(id) {
+  const proj = _projects.find(p => p.id === id); if (!proj) return;
+  _cur = JSON.parse(JSON.stringify(proj));
+  document.getElementById('pres-name').value   = _cur.name;
+  document.getElementById('total-min').value   = _cur.totalMin;
+  document.getElementById('slide-count').value = _cur.slideCount;
+  document.getElementById('setup-crumb').textContent = _cur.name;
+  goToTimingDirect();
+}
+
+function deleteProject(id) { _projects = _projects.filter(p => p.id !== id); saveStorage(); renderHome(); }
+
+function saveProject() {
+  if (!_cur) return;
+  _cur.name       = document.getElementById('pres-name').value.trim() || 'Untitled';
+  _cur.totalMin   = parseFloat(document.getElementById('total-min').value) || 30;
+  _cur.slideCount = parseInt(document.getElementById('slide-count').value) || 10;
+  _cur.slides     = cfg.slides.map((_, i) => parseT(document.getElementById('si'+i)?.value || '0'));
+  _cur.savedAt    = new Date().toISOString();
+  const idx = _projects.findIndex(p => p.id === _cur.id);
+  if (idx >= 0) _projects[idx] = _cur; else _projects.unshift(_cur);
+  saveStorage();
+  const btn = document.querySelector('.screen.active [id$="-save-btn"]');
+  if (btn) { const t = btn.textContent; btn.textContent = '✓ Saved'; btn.disabled = true; setTimeout(() => { btn.textContent = t; btn.disabled = false; }, 1400); }
+}
+
+// ── Setup → Timing ────────────────────────────────────────────────────────
+function goToTiming() {
+  if (!_cur) return;
+  _cur.name       = document.getElementById('pres-name').value.trim() || 'Untitled';
+  _cur.totalMin   = parseFloat(document.getElementById('total-min').value) || 30;
+  _cur.slideCount = parseInt(document.getElementById('slide-count').value) || 10;
+  cfg.totalSec    = Math.round(_cur.totalMin * 60);
+  cfg.slides      = Array.from({ length: _cur.slideCount }, () => ({ target: 0 }));
+  document.getElementById('timing-crumb').textContent = _cur.name;
+  buildRows(_cur.slideCount);
+  if (_cur.slides?.length) applySlides(_cur.slides); else distributeEvenly();
+  navigate('s-timing');
+}
+
+function goToTimingDirect() {
+  cfg.totalSec = Math.round(_cur.totalMin * 60);
+  cfg.slides   = Array.from({ length: _cur.slideCount }, () => ({ target: 0 }));
+  document.getElementById('timing-crumb').textContent = _cur.name;
+  buildRows(_cur.slideCount);
+  if (_cur.slides?.length) applySlides(_cur.slides); else distributeEvenly();
+  navigate('s-timing');
 }
 
 function buildRows(count) {
-  const list = document.getElementById('slides-list');
-  list.replaceChildren();
+  const tbody = document.getElementById('slides-list'); tbody.replaceChildren();
   for (let i = 0; i < count; i++) {
-    const row = mk('div', 'slide-row');
-    const lbl = mk('span', 'slide-lbl'); lbl.textContent = 'Slide ' + (i + 1);
-    const inp = mk('input');
-    inp.type = 'text'; inp.id = 'si' + i; inp.inputMode = 'decimal';
-    inp.placeholder = '0:00'; inp.value = '0:00';
+    const tr = mk('tr'), tdNum = mk('td', 'slide-num'), tdInp = mk('td'), tdUnit = mk('td', 'slide-unit');
+    tdNum.textContent = 'Slide ' + (i+1);
+    const inp = mk('input', 'slide-inp');
+    inp.type = 'text'; inp.id = 'si'+i; inp.inputMode = 'decimal'; inp.placeholder = '0:00'; inp.value = '0:00';
     inp.addEventListener('input', syncTotal);
     inp.addEventListener('blur', () => { inp.value = fmtT(parseT(inp.value)); syncTotal(); });
-    const unit = mk('span', 'slide-unit'); unit.textContent = 'min:sec';
-    row.append(lbl, inp, unit); list.appendChild(row);
+    tdUnit.textContent = 'min:sec';
+    tdInp.appendChild(inp);
+    tr.append(tdNum, tdInp, tdUnit); tbody.appendChild(tr);
   }
 }
 
-function applyPending() {
-  _pending.forEach((secs, i) => { const el = document.getElementById('si' + i); if (el) el.value = fmtT(secs); });
-  _pending = null; syncTotal();
-}
+function applySlides(slides) { slides.forEach((s, i) => { const el = document.getElementById('si'+i); if (el) el.value = fmtT(s); }); syncTotal(); }
 
 function distributeEvenly() {
-  const perSec = Math.round(cfg.totalSec / cfg.slides.length);
-  cfg.slides.forEach((_, i) => { const el = document.getElementById('si' + i); if (el) el.value = fmtT(perSec); });
+  const per = Math.round(cfg.totalSec / Math.max(1, cfg.slides.length));
+  cfg.slides.forEach((_, i) => { const el = document.getElementById('si'+i); if (el) el.value = fmtT(per); });
   syncTotal();
 }
 
 function syncTotal() {
   let total = 0;
-  cfg.slides.forEach((sl, i) => { const s = parseT(document.getElementById('si' + i)?.value || '0'); sl.target = s; total += s; });
+  cfg.slides.forEach((sl, i) => { const s = parseT(document.getElementById('si'+i)?.value||'0'); sl.target = s; total += s; });
   const diff = total - cfg.totalSec, el = document.getElementById('total-display');
   el.textContent = fmt(total);
-  el.className = 'total-bar-val ' + (Math.abs(diff) < 5 ? 'ok' : diff > 5 ? 'err' : 'warn');
-  autoSave();
-}
-
-// ── Presentation ──────────────────────────────────────────────────────────
-function startPresentation() {
-  syncTotal(); pres.idx = 0; pres.actuals = [];
-  const now = performance.now(); pres.presStart = pres.slideStart = now;
-  buildPresDots(); refreshPresent(); show('s-present'); acquireLock();
-  if (pres.raf) cancelAnimationFrame(pres.raf); tick();
-}
-
-function buildPresDots() {
-  const row = document.getElementById('dots'); row.replaceChildren();
-  cfg.slides.forEach((_, i) => { const d = mk('div', 'dot'); d.id = 'pd' + i; row.appendChild(d); });
-}
-
-function updatePresDots() {
-  cfg.slides.forEach((_, i) => {
-    const d = document.getElementById('pd' + i);
-    if (d) d.className = 'dot' + (i < pres.idx ? ' done' : i === pres.idx ? ' current' : '');
-  });
-}
-
-function refreshPresent() {
-  const i = pres.idx, n = cfg.slides.length;
-  document.getElementById('badge').textContent        = 'Slide ' + (i+1) + ' / ' + n;
-  document.getElementById('slide-obj').textContent    = 'target ' + fmt(cfg.slides[i].target);
-  document.getElementById('cumul-target').textContent = fmt(cumulTarget(i));
-  document.getElementById('btn-next').textContent     = i === n-1 ? '✓ Finish' : 'Next slide →';
-  updatePresDots();
-}
-
-function tick() {
-  const now = performance.now();
-  const slideElapsed = (now - pres.slideStart) / 1000;
-  const totalElapsed = (now - pres.presStart)  / 1000;
-  const diff = totalElapsed - cumulTarget(pres.idx);
-  document.getElementById('slide-time').textContent    = fmt(slideElapsed);
-  document.getElementById('total-elapsed').textContent = fmt(totalElapsed);
-  const numEl = document.getElementById('status-num'), lblEl = document.getElementById('status-lbl');
-  if (Math.abs(diff) <= 1) { numEl.textContent = 'On track';       numEl.style.color = 'var(--green)'; lblEl.textContent = ''; }
-  else if (diff > 0)        { numEl.textContent = '+' + fmt(diff);  numEl.style.color = 'var(--red)';   lblEl.textContent = 'behind — speed up'; }
-  else                      { numEl.textContent = fmt(diff);         numEl.style.color = 'var(--green)'; lblEl.textContent = 'ahead — slow down'; }
-  document.getElementById('fill').style.width = Math.min(100, totalElapsed / cfg.totalSec * 100) + '%';
-  pres.raf = requestAnimationFrame(tick);
-}
-
-function nextSlide() {
-  const now = performance.now(); pres.actuals.push((now - pres.slideStart) / 1000);
-  if (pres.idx === cfg.slides.length - 1) { cancelAnimationFrame(pres.raf); showSummary(); }
-  else { pres.idx++; pres.slideStart = now; refreshPresent(); }
-}
-
-// ── Summary ───────────────────────────────────────────────────────────────
-function showSummary() {
-  const totalActual = pres.actuals.reduce((a, b) => a + b, 0), diff = totalActual - cfg.totalSec;
-  const bigEl = document.getElementById('sum-diff'), subEl = document.getElementById('sum-sub');
-  bigEl.textContent = fmtDiff(diff); bigEl.style.color = diff > 1 ? 'var(--red)' : 'var(--green)';
-  subEl.textContent = diff > 1 ? 'behind' : diff < -1 ? 'ahead' : 'Perfect!';
-  const rows = document.getElementById('sum-rows'); rows.replaceChildren();
-  cfg.slides.forEach((sl, i) => {
-    const actual = pres.actuals[i] ?? 0, d = actual - sl.target;
-    const color = Math.abs(d) < 2 ? 'var(--muted)' : d > 0 ? 'var(--red)' : 'var(--green)';
-    const row = mk('div', 'sum-row'), lbl = mk('span', 'sum-slide');
-    lbl.textContent = 'Slide ' + (i+1);
-    const right = mk('div'), act = mk('div', 'sum-actual'); act.textContent = fmt(actual);
-    const dEl = mk('div', 'sum-diff'); dEl.style.color = color; dEl.textContent = fmtDiff(d) + ' · target ' + fmt(sl.target);
-    right.append(act, dEl); row.append(lbl, right); rows.appendChild(row);
-  });
-  show('s-summary');
+  el.className = 'total-strip-val ' + (Math.abs(diff) < 5 ? 'ok' : diff > 5 ? 'err' : 'warn');
 }
 
 // ── Rehearsal ─────────────────────────────────────────────────────────────
-function startRehearse() {
-  rh.count = Math.max(1, parseInt(document.getElementById('slide-count').value) || 10);
-  rh.idx = 0; rh.timings = new Array(rh.count).fill(null);
-  cfg.totalSec = Math.round((parseFloat(document.getElementById('total-min').value) || 30) * 60);
-  buildRhDots(); updateRhDots();
+function goToRehearse() {
+  syncTotal();
+  rh.count = cfg.slides.length; rh.idx = 0;
+  rh.timings = new Array(rh.count).fill(null);
+  rh.paused = false; rh.elapsed = 0;
+  document.getElementById('rh-crumb').textContent = _cur?.name || 'Rehearsal';
   document.getElementById('rh-obj').textContent = fmt(cfg.totalSec);
-  enterRunning(); show('s-rehearse');
+  buildRhDots(); updateRhDots(); enterRunning(); navigate('s-rehearse');
   if (rh.raf) cancelAnimationFrame(rh.raf);
   rh.timerStart = performance.now(); rhTick();
 }
 
 function buildRhDots() {
   const row = document.getElementById('rh-dots'); row.replaceChildren();
-  for (let i = 0; i < rh.count; i++) { const d = mk('div', 'dot'); d.id = 'rd' + i; row.appendChild(d); }
+  for (let i = 0; i < rh.count; i++) { const d = mk('div','dot'); d.id='rd'+i; row.appendChild(d); }
 }
-
 function updateRhDots() {
   for (let i = 0; i < rh.count; i++) {
-    const d = document.getElementById('rd' + i);
-    if (d) d.className = 'dot' + (i < rh.idx ? ' done' : i === rh.idx ? ' current' : '');
+    const d = document.getElementById('rd'+i);
+    if (d) d.className = 'dot'+(i<rh.idx?' done':i===rh.idx?' current':'');
   }
-  document.getElementById('rh-badge').textContent = 'Slide ' + (rh.idx+1) + ' / ' + rh.count;
+  document.getElementById('rh-badge').textContent = 'Slide '+(rh.idx+1)+' / '+rh.count;
 }
 
 function enterRunning() {
-  document.getElementById('rh-running').style.display     = '';
-  document.getElementById('rh-validated').style.display   = 'none';
+  rh.paused = false;
+  document.getElementById('rh-running').style.display    = '';
+  document.getElementById('rh-validated').style.display  = 'none';
+  document.getElementById('rh-status').style.display     = 'none';
   document.getElementById('rh-validate-btn').style.display = '';
-  document.getElementById('rh-next-btn').style.display    = 'none';
+  document.getElementById('rh-next-btn').style.display   = 'none';
+  document.getElementById('rh-slide-lbl').textContent    = 'Slide '+(rh.idx+1);
+  document.getElementById('rh-pause-btn').textContent    = '⏸ Pause';
+  document.getElementById('rh-pause-btn').classList.remove('paused');
+  document.getElementById('rh-hint').textContent         = 'Timer running';
 }
 
 function rhTick() {
-  document.getElementById('rh-time').textContent = fmt((performance.now() - rh.timerStart) / 1000);
+  if (!rh.paused) {
+    const e = rh.elapsed + (performance.now()-rh.timerStart)/1000;
+    document.getElementById('rh-time').textContent = fmt(e);
+  }
   rh.raf = requestAnimationFrame(rhTick);
 }
 
+function togglePause() {
+  const btn = document.getElementById('rh-pause-btn');
+  if (rh.paused) {
+    rh.timerStart = performance.now(); rh.paused = false;
+    btn.textContent = '⏸ Pause'; btn.classList.remove('paused');
+    document.getElementById('rh-hint').textContent = 'Timer running';
+  } else {
+    rh.elapsed += (performance.now()-rh.timerStart)/1000; rh.paused = true;
+    btn.textContent = '▶ Resume'; btn.classList.add('paused');
+    document.getElementById('rh-hint').textContent = 'Paused';
+  }
+}
+
+function resetSlideTimer() {
+  rh.elapsed = 0; rh.timerStart = performance.now(); rh.paused = false;
+  document.getElementById('rh-time').textContent = '0:00';
+  document.getElementById('rh-pause-btn').textContent = '⏸ Pause';
+  document.getElementById('rh-pause-btn').classList.remove('paused');
+  document.getElementById('rh-hint').textContent = 'Timer running';
+}
+
 function validateSlide() {
-  const secs = Math.round((performance.now() - rh.timerStart) / 1000);
+  const secs = Math.round(rh.elapsed + (rh.paused?0:(performance.now()-rh.timerStart)/1000));
   rh.timings[rh.idx] = secs; cancelAnimationFrame(rh.raf);
-  document.getElementById('rh-running').style.display      = 'none';
-  document.getElementById('rh-validated').style.display    = '';
+  document.getElementById('rh-running').style.display    = 'none';
+  document.getElementById('rh-validated').style.display  = '';
+  document.getElementById('rh-status').style.display     = '';
   document.getElementById('rh-validate-btn').style.display = 'none';
+  document.getElementById('rh-val-lbl').textContent      = 'Slide '+(rh.idx+1)+' — recorded';
   const rec = document.getElementById('rh-recorded');
   rec.textContent = fmtT(secs); rec.style.display = '';
-  document.getElementById('rh-edit-inp').style.display  = 'none';
-  document.getElementById('rh-edit-hint').style.display = '';
+  document.getElementById('rh-edit-inp').style.display   = 'none';
+  document.getElementById('rh-edit-hint').style.display  = '';
   const nb = document.getElementById('rh-next-btn');
-  nb.style.display = ''; nb.textContent = rh.idx === rh.count-1 ? '✓ Finish rehearsal' : 'Next slide →';
+  nb.style.display = ''; nb.textContent = rh.idx===rh.count-1 ? '✓ Apply timings' : 'Next slide →';
   updateRhStatus();
 }
 
@@ -560,54 +624,146 @@ function editRecorded() {
 function confirmEdit() {
   const inp = document.getElementById('rh-edit-inp'), secs = parseT(inp.value);
   rh.timings[rh.idx] = secs; inp.style.display = 'none';
-  const rec = document.getElementById('rh-recorded');
-  rec.textContent = fmtT(secs); rec.style.display = '';
+  const rec = document.getElementById('rh-recorded'); rec.textContent = fmtT(secs); rec.style.display = '';
   document.getElementById('rh-edit-hint').style.display = '';
   updateRhStatus();
 }
 
 function updateRhStatus() {
-  const vals = rh.timings.filter(t => t !== null);
-  const total = vals.reduce((a, b) => a + b, 0), diff = total - cfg.totalSec;
+  const vals = rh.timings.filter(t=>t!==null), total = vals.reduce((a,b)=>a+b,0), diff = total-cfg.totalSec;
   document.getElementById('rh-total').textContent = fmt(total);
   const numEl = document.getElementById('rh-diff'), lblEl = document.getElementById('rh-diff-lbl');
-  if (Math.abs(diff) < 2)  { numEl.textContent = 'On track';    numEl.style.color = 'var(--green)'; lblEl.textContent = ''; }
-  else if (diff > 0)        { numEl.textContent = fmtDiff(diff); numEl.style.color = 'var(--red)';   lblEl.textContent = 'over'; }
-  else                      { numEl.textContent = fmt(diff);      numEl.style.color = 'var(--green)'; lblEl.textContent = 'ahead'; }
-  const remaining = cfg.totalSec - total, remSlides = rh.count - vals.length;
+  if (Math.abs(diff)<2) { numEl.textContent='On track'; numEl.style.color='var(--ok)'; lblEl.textContent=''; }
+  else if (diff>0)       { numEl.textContent=fmtDiff(diff); numEl.style.color='var(--err)'; lblEl.textContent='over'; }
+  else                   { numEl.textContent=fmt(diff); numEl.style.color='var(--ok)'; lblEl.textContent='ahead'; }
+  const remSlides = rh.count-vals.length, remaining = cfg.totalSec-total;
   const remEl = document.getElementById('rh-remaining');
-  if (remSlides > 0) {
-    const perSlide = Math.round(remaining / remSlides);
-    remEl.textContent = (remaining >= 0 ? fmt(remaining) : '−' + fmt(-remaining)) +
-      ' left · ' + remSlides + ' slide' + (remSlides > 1 ? 's' : '') +
-      ' (≈ ' + fmtT(Math.max(0, perSlide)) + '/slide)';
-    remEl.style.color = remaining < 0 ? 'var(--red)' : 'var(--muted)';
-  } else { remEl.textContent = ''; }
+  if (remSlides>0) {
+    const per = Math.round(remaining/remSlides);
+    remEl.textContent=(remaining>=0?fmt(remaining):'−'+fmt(-remaining))+' left · '+remSlides+' slide'+(remSlides>1?'s':'')+' (≈ '+fmtT(Math.max(0,per))+'/slide)';
+    remEl.style.color = remaining<0?'var(--err)':'var(--muted)';
+  } else { remEl.textContent=''; }
 }
 
 function nextRehearse() {
-  if (rh.idx === rh.count - 1) { finishRehearse(); return; }
-  rh.idx++; updateRhDots(); enterRunning();
-  rh.timerStart = performance.now();
-  if (rh.raf) cancelAnimationFrame(rh.raf); rhTick();
+  if (rh.idx===rh.count-1) {
+    cfg.slides.forEach((sl,i)=>{ sl.target=rh.timings[i]??sl.target; });
+    cfg.slides.forEach((sl,i)=>{ const el=document.getElementById('si'+i); if(el) el.value=fmtT(sl.target); });
+    syncTotal(); navBack(); return;
+  }
+  rh.idx++; rh.elapsed=0; updateRhDots(); enterRunning();
+  rh.timerStart=performance.now(); if(rh.raf) cancelAnimationFrame(rh.raf); rhTick();
 }
 
-function finishRehearse() {
-  cancelAnimationFrame(rh.raf);
-  cfg.slides = rh.timings.map(t => ({ target: t ?? 0 }));
-  _pending   = rh.timings.map(t => t ?? 0);
-  document.getElementById('slide-count').value = rh.count;
-  goToConfig();
+// ── Presentation ──────────────────────────────────────────────────────────
+function startPresentation() {
+  syncTotal(); pres.idx=0; pres.actuals=[];
+  const now=performance.now(); pres.presStart=pres.slideStart=now;
+  buildPresDots(); refreshPresent(); navigate('s-present'); acquireLock();
+  if(pres.raf) cancelAnimationFrame(pres.raf); tick();
 }
 
-function cancelRehearse() { if (rh.raf) cancelAnimationFrame(rh.raf); show('s-setup'); }
+function buildPresDots() {
+  const row=document.getElementById('pres-dots'); row.replaceChildren();
+  cfg.slides.forEach((_,i)=>{ const d=mk('div','pdot'); d.id='pd'+i; row.appendChild(d); });
+}
+
+function updatePresDots() {
+  cfg.slides.forEach((_,i)=>{ const d=document.getElementById('pd'+i); if(d) d.className='pdot'+(i<pres.idx?' done':i===pres.idx?' cur':''); });
+}
+
+function refreshPresent() {
+  const i=pres.idx, n=cfg.slides.length;
+  document.getElementById('pres-badge').textContent    = 'Slide '+(i+1)+' / '+n;
+  document.getElementById('pres-obj').textContent      = 'target '+fmt(cfg.slides[i].target);
+  document.getElementById('pres-target').textContent   = fmt(cumulTarget(i));
+  document.getElementById('btn-next').textContent      = i===n-1?'✓ Finish':'Next slide →';
+  updatePresDots();
+}
+
+function tick() {
+  const now=performance.now(), se=(now-pres.slideStart)/1000, te=(now-pres.presStart)/1000;
+  const diff=te-cumulTarget(pres.idx);
+  document.getElementById('slide-time').textContent = fmt(se);
+  document.getElementById('pres-elapsed').textContent= fmt(te);
+  const numEl=document.getElementById('pres-diff'), lblEl=document.getElementById('pres-diff-lbl');
+  if(Math.abs(diff)<=1) { numEl.textContent='On track';numEl.style.color='#22c55e';lblEl.textContent=''; }
+  else if(diff>0)        { numEl.textContent='+'+fmt(diff);numEl.style.color='#ef4444';lblEl.textContent='behind — speed up'; }
+  else                   { numEl.textContent=fmt(diff);numEl.style.color='#22c55e';lblEl.textContent='ahead — slow down'; }
+  document.getElementById('pres-fill').style.width=Math.min(100,te/cfg.totalSec*100)+'%';
+  pres.raf=requestAnimationFrame(tick);
+}
+
+function nextSlide() {
+  const now=performance.now(); pres.actuals.push((now-pres.slideStart)/1000);
+  if(pres.idx===cfg.slides.length-1) { cancelAnimationFrame(pres.raf); showSummary(); }
+  else { pres.idx++; pres.slideStart=now; refreshPresent(); }
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────
+function showSummary() {
+  releaseLock();
+  const total=pres.actuals.reduce((a,b)=>a+b,0), diff=total-cfg.totalSec;
+  const bigEl=document.getElementById('sum-diff'), subEl=document.getElementById('sum-sub');
+  bigEl.textContent=fmtDiff(diff); bigEl.style.color=diff>1?'var(--err)':'var(--ok)';
+  subEl.textContent=diff>1?'behind':'ahead';
+  const rows=document.getElementById('sum-rows'); rows.replaceChildren();
+  cfg.slides.forEach((sl,i)=>{
+    const actual=pres.actuals[i]??0, d=actual-sl.target;
+    const color=Math.abs(d)<2?'var(--muted)':d>0?'var(--err)':'var(--ok)';
+    const row=mk('div','sum-row'), lbl=mk('span','sum-slide'); lbl.textContent='Slide '+(i+1);
+    const right=mk('div','sum-right'), act=mk('div','sum-actual'); act.textContent=fmt(actual);
+    const dEl=mk('div','sum-diff-lbl'); dEl.style.color=color; dEl.textContent=fmtDiff(d)+' · target '+fmt(sl.target);
+    right.append(act,dEl); row.append(lbl,right); rows.appendChild(row);
+  });
+  navigate('s-summary');
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────
+function exportJSON() {
+  if(!_cur) return; syncTotal();
+  const data={name:_cur.name,totalMin:_cur.totalMin,slideCount:_cur.slideCount,
+    slides:cfg.slides.map(s=>s.target),savedAt:_cur.savedAt};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob), a=mk('a');
+  a.href=url; a.download=(_cur.name||'presentation').replace(/[^a-z0-9]/gi,'-').toLowerCase()+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+function triggerImport() { document.getElementById('import-input').click(); }
+function importJSON(file) {
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{ try {
+    const data=JSON.parse(e.target.result);
+    const proj={id:String(Date.now()),name:data.name||'Imported',totalMin:data.totalMin||30,
+      slideCount:data.slideCount||data.slides?.length||10,slides:data.slides||[],savedAt:data.savedAt||new Date().toISOString()};
+    _projects.unshift(proj); saveStorage(); renderHome();
+  } catch { alert('Invalid or corrupted JSON file.'); } };
+  reader.readAsText(file);
+  document.getElementById('import-input').value='';
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function parseT(val) {
+  val=String(val).trim(); let m=0,s=0;
+  if(val.includes(':'))      { const p=val.split(':'); m=parseInt(p[0])||0; s=parseInt(p[1])||0; }
+  else if(val.includes('.')) { const p=val.split('.'); m=parseInt(p[0])||0; s=parseInt(p[1])||0; }
+  else { m=parseInt(val)||0; }
+  return m*60+Math.min(59,Math.max(0,s));
+}
+function fmtT(secs) { secs=Math.max(0,Math.round(secs)); return Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0'); }
+function fmt(secs)  { const neg=secs<0,abs=Math.abs(Math.round(secs)); return(neg?'−':'')+Math.floor(abs/60)+':'+String(abs%60).padStart(2,'0'); }
+function fmtDiff(d) { return(d>0?'+':'')+fmt(d); }
+function fmtDate(iso) { try { return new Date(iso).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'}); } catch { return ''; } }
+function mk(tag,cls) { const el=document.createElement(tag); if(cls) el.className=cls; return el; }
+function cumulTarget(upTo) { return cfg.slides.slice(0,upTo+1).reduce((a,s)=>a+s.target,0); }
+async function acquireLock() { try { pres.lock=await navigator.wakeLock?.request('screen'); } catch {} }
+function releaseLock() { pres.lock?.release(); pres.lock=null; }
 
 // ── Init ──────────────────────────────────────────────────────────────────
-restoreLast();
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+loadProjects(); renderHome();
+history.replaceState({screen:'s-home'},'');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 </body>
 </html>

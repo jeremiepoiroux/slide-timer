@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'slide-timer-v1';
+const CACHE = 'slide-timer-v3';
 const SHELL = ['./', './index.html', './icon.svg', './manifest.json'];
 
 self.addEventListener('install', e => {
