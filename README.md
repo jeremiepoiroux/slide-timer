@@ -64,6 +64,11 @@ To transfer a presentation to another device: use **Export JSON** on the source 
 
 ## Changelog
 
+### v2.1 — November 2026
+- Rehearsal: edit slide count, total time, and per-slide targets inline without leaving the rehearsal screen
+- Rehearsal: redo any individual slide or restart from slide 1 while keeping recorded timings
+- Present: pulsing red alert when running significantly over time
+
 ### v2.0 — September 2026
 - Complete redesign: light/dark adaptive UI (blue accent, Elide/Rescribe visual language)
 - Project management: multiple named presentations with cards, open/delete
